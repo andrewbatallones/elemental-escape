@@ -7,6 +7,7 @@ public class PlayerMovement : MonoBehaviour
 {
     private PlayerController playerController;
     private Rigidbody2D rb;
+    private Animator anim;
 
     public float speed = 10f;
     public float jumpForce;
@@ -15,8 +16,9 @@ public class PlayerMovement : MonoBehaviour
     public LayerMask whatIsGround;
 
     private float moveDirection;
-    private bool facingRight;
     private bool isGrounded;
+    private bool wasOnGround;
+    private PlayerManager playerManager;
 
 
     private void Awake()
@@ -29,9 +31,12 @@ public class PlayerMovement : MonoBehaviour
     private void Start()
     {
         rb = GetComponent<Rigidbody2D>();
+        anim = GetComponent<Animator>();
+        playerManager = GetComponent<PlayerManager>();
+
         moveDirection = 0f;
-        facingRight = false;
         isGrounded = false;
+        wasOnGround = false;
     }
 
     private void Update()
@@ -41,12 +46,14 @@ public class PlayerMovement : MonoBehaviour
 
     private void FixedUpdate()
     {
-        isGrounded = Physics2D.OverlapCircle(groundCheck.position, checkRadius, whatIsGround);
+        CheckGrounded();
 
         rb.velocity = new Vector2(moveDirection * speed, rb.velocity.y);
 
-        if ((!facingRight && moveDirection > 0) || (facingRight && moveDirection < 0))
-            Flip();
+        if (moveDirection > 0)
+            Flip(180);
+        else if (moveDirection < 0)
+            Flip(0);
     }
 
     private void OnEnable()
@@ -65,12 +72,27 @@ public class PlayerMovement : MonoBehaviour
 
 
     // Private
-    private void Flip()
+    private void CheckGrounded()
     {
-        facingRight = !facingRight;
-        Vector3 scale = transform.localScale;
-        scale.x *= -1;
-        transform.localScale = scale;
+        isGrounded = Physics2D.OverlapCircle(groundCheck.position, checkRadius, whatIsGround);
+
+        if (!wasOnGround && isGrounded)
+        {
+            anim.SetTrigger("landed");
+        }
+
+        wasOnGround = isGrounded;
+    }
+
+    private void Flip(int number)
+    {
+        // This works if no animation
+        //facingRight = !facingRight;
+        //Vector3 scale = transform.localScale;
+        //scale.x *= -1;
+        //transform.localScale = scale;
+
+        transform.eulerAngles = new Vector3(0, number, 0);
     }
 
     private void Jump()
@@ -79,7 +101,10 @@ public class PlayerMovement : MonoBehaviour
         //rb.velocity = Vector2.up * jumpForce;
 
         if (isGrounded)
+        {
+            anim.SetTrigger("takeOff");
             rb.AddForce(Vector2.up * jumpForce, ForceMode2D.Impulse);
+        }
     }
 
     private void CancelJump()
@@ -95,5 +120,7 @@ public class PlayerMovement : MonoBehaviour
 
         playerController.Gameplay.Jump.performed += _ => Jump();
         playerController.Gameplay.Jump.canceled += _ => CancelJump();
+
+        playerController.Gameplay.Shoot.performed += _ => playerManager.Shoot();
     }
 }
